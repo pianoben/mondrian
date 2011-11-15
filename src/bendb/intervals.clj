@@ -43,7 +43,7 @@
 	zl (:low tree)
 	zh (:high tree)
 	zm (:max tree)]
-    (itree. yl yh zm :red (itree. xl xh (max-or-cur b xm) :black a b) (itree. zl zh zm :black c d))))
+    (itree. yl yh zm :red (itree. xl xh (max-or-cur b xh) :black a b) (itree. zl zh zm :black c d))))
 
 (defn balance-case-three [tree]
   (let [r  (:right tree)
@@ -61,7 +61,7 @@
 	zl (:low r)
 	zh (:high r)
 	zm (:max r)]
-    (itree. yl yh zm :red (itree. xl xh (max-or-cur b xm) :black a b) (itree. zl zh zm :black c d))))
+    (itree. yl yh zm :red (itree. xl xh (max-or-cur b xh) :black a b) (itree. zl zh zm :black c d))))
 
 (defn balance-case-four [tree]
   (let [r  (:right tree)
@@ -79,7 +79,7 @@
 	zl (:low rr)
 	zh (:high rr)
 	zm (:max rr)]
-    (itree. yl yh zm :red (itree. xl xh (max-or-cur b xm) :black a b) (itree. zl zh zm :black c d))))
+    (itree. yl yh zm :red (itree. xl xh (max-or-cur b xh) :black a b) (itree. zl zh zm :black c d))))
 
 (defn balance
   "A perhaps too-literal implementation of Okasaki's red-black balance fn."

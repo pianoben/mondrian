@@ -1,9 +1,15 @@
-(ns bendb.intervals)
+(ns mondrian.intervals)
 
 (defrecord itree [low high max color left right])
 
 (defmacro max-or-cur [node cur]
   `(if-let [m# (:max ~node)] m#  ~cur))
+
+(defn overlaps?
+  [ll lh rl rh]
+  (and
+   (not (< lh rl))
+   (not (< rh ll))))
 
 (defn balance-case-one
   "Balances the case where a black node has red left child and left-left grandchild."
@@ -113,24 +119,15 @@
        :else tree))
     (itree. low high high :red nil nil)))
 
+(defn empty-tree
+  []
+  nil)
+
 (defn add-interval
   "Adds an interval to an itree."
   [tree low high]
   (let [root (insert tree low high)]
     (assoc root :color :black)))
-
-(defn contains-interval?
-  "Indicates whether a given point falls within an interval in the given itree."
-  [tree point]
-  (loop [node tree]
-    (if-not node
-      false	
-      (let [low  (:low node)
-	    high (:high node)]
-	(cond
-	 (and (>= point low) (<= point high)) true
-	 (< point low)  (recur (:left node))
-	 (> point high) (recur (:right node)))))))
 
 (defn contains-point?
   "Indicates whether a given point falls within an interval in the given itree."
@@ -145,3 +142,18 @@
          (and (>= point low) (<= point high)) true
          (and left (< point (:max left))) (recur (:left node))
          :else (recur (:right node)))))))
+
+(defn get-overlapping-intervals
+  "Returns a vector of intervals which overlap a given interval."
+  [tree low high]
+  (loop [node tree
+	 ixs  []]
+    (if-not node
+      ixs
+      (let [nlow  (:low node)
+	    nhigh (:high node)
+	    left  (:left node)
+	    ixss  (if (overlaps? low high nlow nhigh) (conj ixs node) ixs)]
+	(if (and left (< low (:max left)))
+	  (recur left ixss)
+	  (recur (:right node) ixss))))))

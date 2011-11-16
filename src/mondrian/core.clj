@@ -1,1 +1,2 @@
-(ns mondrian.core)
+(ns mondrian.core
+  (:use mondrian.intervals))

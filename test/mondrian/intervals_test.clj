@@ -1,7 +1,7 @@
-(ns bendb.intervals-test
+(ns mondrian.intervals-test
   (:use clojure.test)
-  (:use bendb.intervals)
-  (:import (bendb.intervals itree)))
+  (:use mondrian.intervals)
+  (:import (mondrian.intervals itree)))
 
 (deftest test-c1
   "Tests balancing case one - black node with red left child and red left-left grandchild."

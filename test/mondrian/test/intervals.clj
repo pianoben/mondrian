@@ -1,4 +1,4 @@
-(ns mondrian.intervals-test
+(ns mondrian.test.intervals
   (:use clojure.test)
   (:use mondrian.intervals)
   (:import (mondrian.intervals itree)))

@@ -140,6 +140,10 @@
            mapped (map f (adjacencies from))]
        (reduce conj q mapped))))
 
+(defn cycle-neighbors
+  [from adjacencies visited]
+  (remove #(contains? visited %) (adjacencies from)))
+
 (defn make-cycle
   {:static true}
   [from to adjacencies]

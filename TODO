@@ -1,0 +1,13 @@
+TODO:
+
+Find a better data structure than itrees for tracking vertical and horizontal intersections.  Actually, it occurs to me that just storing horizontal and vertical lines in their own itrees will give us the same information.
+
+Investigate augmenting itrees with tag data - I'm thinking :nodraw tags for the border lines which don't make it into the final rendering.
+
+Implement random grid generation
+
+Implement Swing rendering
+Implement .PNG or SVG rendering
+Implement a web service to deliver the results of the previous TODO
+
+Investigate running Clojure on Android, and the feasibility of running this as an active wallpaper.

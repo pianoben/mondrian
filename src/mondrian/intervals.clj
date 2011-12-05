@@ -1,6 +1,6 @@
 (ns mondrian.intervals)
 
-(defrecord itree [low high max color left right])
+(defrecord itree [low high max color left right tag])
 
 (defmacro max-or-cur [node cur]
   `(if-let [m# (:max ~node)] m#  ~cur))
@@ -23,13 +23,16 @@
 	xl (:low ll)
 	xh (:high ll)
 	xm (:max ll)
+        xt (:tag ll)
 	yl (:low l)
 	yh (:high l)
 	ym (:max l)
+        yt (:tag l)
 	zl (:low tree)
 	zh (:high tree)
-	zm (:max tree)]
-    (itree. yl yh zm :red (itree. xl xh xm :black a b) (itree. zl zh zm :black c d))))
+	zm (:max tree)
+        zt (:tag tree)]
+    (itree. yl yh zm :red (itree. xl xh xm :black a b xt) (itree. zl zh zm :black c d zt) yt)))
 
 (defn balance-case-two
   "Balances the case where a black node has a red left child and left-right grandchild."
@@ -43,13 +46,16 @@
 	xl (:low l)
 	xh (:high l)
 	xm (:max l)
+        xt (:tag l)
 	yl (:low lr)
 	yh (:high lr)
 	ym (:max lr)
+        yt (:tag lr)
 	zl (:low tree)
 	zh (:high tree)
-	zm (:max tree)]
-    (itree. yl yh zm :red (itree. xl xh (max-or-cur b xh) :black a b) (itree. zl zh zm :black c d))))
+	zm (:max tree)
+        zt (:tag tree)]
+    (itree. yl yh zm :red (itree. xl xh (max-or-cur b xh) :black a b xt) (itree. zl zh zm :black c d zt) yt)))
 
 (defn balance-case-three [tree]
   (let [r  (:right tree)
@@ -61,13 +67,16 @@
 	xl (:low tree)
 	xh (:high tree)
 	xm (:max tree)
+        xt (:tag tree)
 	yl (:low rl)
 	yh (:high rl)
 	ym (:max rl)
+        yt (:tag rl)
 	zl (:low r)
 	zh (:high r)
-	zm (:max r)]
-    (itree. yl yh zm :red (itree. xl xh (max-or-cur b xh) :black a b) (itree. zl zh zm :black c d))))
+	zm (:max r)
+        zt (:tag r)]
+    (itree. yl yh zm :red (itree. xl xh (max-or-cur b xh) :black a b xt) (itree. zl zh zm :black c d zt) yt)))
 
 (defn balance-case-four [tree]
   (let [r  (:right tree)
@@ -79,13 +88,16 @@
 	xl (:low tree)
 	xh (:high tree)
 	xm (:max tree)
+        xt (:tag tree)
 	yl (:low r)
 	yh (:high r)
 	ym (:max r)
+        yt (:tag r)
 	zl (:low rr)
 	zh (:high rr)
-	zm (:max rr)]
-    (itree. yl yh zm :red (itree. xl xh (max-or-cur b xh) :black a b) (itree. zl zh zm :black c d))))
+	zm (:max rr)
+        zt (:tag rr)]
+    (itree. yl yh zm :red (itree. xl xh (max-or-cur b xh) :black a b xt) (itree. zl zh zm :black c d zt) yt)))
 
 (defn balance
   "A perhaps too-literal implementation of Okasaki's red-black balance fn."
@@ -104,7 +116,7 @@
      (and (= color :black) (= r-color rr-color :red)) (balance-case-four tree)
      :else tree)))
 
-(defn insert [tree low high]
+(defn insert [tree low high tag]
   (if tree
     (let [color (:color tree)
 	  curh  (:high  tree)
@@ -112,12 +124,12 @@
 	  left  (:left  tree)
 	  right (:right tree)]
       (cond
-       (< low  curl) (balance (assoc tree :left (insert left low high)))
-       (> low  curl) (balance (assoc tree :right (insert right low high)))
-       (< high curh) (balance (assoc tree :left (insert left low high)))
-       (> high curh) (balance (assoc tree :right (insert right low high)))
+       (< low  curl) (balance (assoc tree :left (insert left low high tag)))
+       (> low  curl) (balance (assoc tree :right (insert right low high tag)))
+       (< high curh) (balance (assoc tree :left (insert left low high tag)))
+       (> high curh) (balance (assoc tree :right (insert right low high tag)))
        :else tree))
-    (itree. low high high :red nil nil)))
+    (itree. low high high :red nil nil tag)))
 
 (defn empty-tree
   []
@@ -125,9 +137,11 @@
 
 (defn add-interval
   "Adds an interval to an itree."
-  [tree low high]
-  (let [root (insert tree low high)]
-    (assoc root :color :black)))
+  ([tree low high]
+     (add-interval tree low high nil))
+  ([tree low high tag]
+   (let [root (insert tree low high tag)]
+     (assoc root :color :black)))) 
 
 (defn contains-point?
   "Indicates whether a given point falls within an interval in the given itree."
@@ -157,3 +171,11 @@
 	(if (and left (< low (:max left)))
 	  (recur left ixss)
 	  (recur (:right node) ixss))))))
+
+(defn stab
+  [tree point]
+  (get-overlapping-intervals tree point point))
+
+(defn tag
+  [tree]
+  (:tag tree))

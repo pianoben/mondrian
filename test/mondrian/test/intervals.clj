@@ -8,9 +8,11 @@
   []
   (let [t (itree. 4 8 8 :black
 		  (itree. 2 6 6 :red
-			  (itree. 1 5 5 :red nil nil)
-			  nil)
-		  nil)
+			  (itree. 1 5 5 :red nil nil nil)
+			  nil
+                          nil)
+		  nil
+                  nil)
 	t2 (balance-case-one t)
 	left (:left t2)
 	right (:right t2)]
@@ -30,8 +32,11 @@
                            :a
                            (itree. 3 7 7 :red
                                    :b
-                                   :c))
-                   :d)
+                                   :c
+                                   :t)
+                           :t)
+                   :d
+                   :t)
         t2 (balance-case-two t1)
         left (:left t2)
         right (:right t2)]
@@ -65,8 +70,11 @@
                    (itree. 4 8 8 :red
                            (itree. 2 6 6 :red
                                    :b
-                                   :c)
-                           :d))
+                                   :c
+                                   :t)
+                           :d
+                           :t)
+                   :t)
         t2 (balance-case-three t1)
         left (:left t2)
         right (:right t2)]
@@ -101,7 +109,10 @@
                            :b
                            (itree. 5 9 9 :red
                                    :c
-                                   :d)))
+                                   :d
+                                   :t)
+                           :t)
+                   :t)
         t2 (balance-case-four t1)
         left (:left t2)
         right (:right t2)]

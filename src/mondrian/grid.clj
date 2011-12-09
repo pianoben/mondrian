@@ -2,6 +2,9 @@
   (:use mondrian.intervals)
   (:use mondrian.graphs))
 
+(gen-class {:name GridFullException
+            :extends java.lang.Exception})
+
 (defprotocol Line
   (x   [line] "Gets the x coordinate of a line's origin.")
   (y   [line] "Gets the y coordinate of a line's origin.")
@@ -68,7 +71,13 @@
   ([min max]
      (+ min (rand-int (- max min))))
   ([min max padding]
-     (first (remove #(contains-point? padding %) (repeatedly #(random-point min max)))))) 
+     (let [p (first
+              (remove #(contains-point? padding %)
+                                        ; Instead of an infinite seq, try ten times - if after ten attempts we can't find an appropriate point, call the grid full.
+                      (take 10 (repeatedly #(random-point min max)))))]
+       (if p
+         p
+         (throw (java.lang.RuntimeException. "Full grid."))))))
 
 (defn select-random-endpoints
   [ixs]
@@ -89,10 +98,16 @@
         ixs      (flatten (map (comp vec tag) (stab (:hlines grid) x)))
         [a b]    (select-random-endpoints ixs)
         line     (GridLine. x a :v (- b a))]
+    (println (str "Adding vline: a=" a " b=" b " x=" x " ixs=" (vec ixs)))
     (-> grid
         (update-in [:lines] conj line)
         (update-in [:vpadding] add-interval (- x npadding) (+ x npadding) nil)
-        (update-in [:vlines]  add-interval a b x))))
+        (update-in [:vlines] add-interval a b x))))
+
+(defmacro ui
+  [grid ks fn & args]
+  (println (str "In update-in for " (vec ~ks) " keys and " (vec ~args) " args."))
+  (update-in ~grid ~ks ~fn ~args))
 
 (defn add-horizontal-line
   [grid]
@@ -102,16 +117,20 @@
         ixs      (flatten (map (comp vec tag) (stab (:vlines grid) y)))
         [a b]    (select-random-endpoints ixs)
         line     (GridLine. a y :h (- b a))]
+    (println (str "Adding hline: a=" a " b=" b " y=" y " ixs=" (vec ixs)))
     (-> grid
-        (update-in [:lines] conj line)
-        (update-in [:hpadding] add-interval (- y npadding) (+ y npadding) nil)
-        (update-in [:hlines]   add-interval a b y))))
+        (ui [:lines] conj line)
+        (ui [:hpadding] add-interval (- y npadding) (+ y npadding) nil)
+        (ui [:hlines] add-interval a b y))))
   
 (defn add-random-line
   [grid]
-  (if (= 0 (rand-int 2))
-    (add-vertical-line   grid)
-    (add-horizontal-line grid)))
+  (try
+    (if (= 0 (rand-int 2))
+      (add-vertical-line   grid)
+      (add-horizontal-line grid))
+    (catch java.lang.RuntimeException e
+      nil)))
 
 (defn make-grid
   [width height padding nlines]
@@ -119,7 +138,32 @@
          n 0]
     (if (= n nlines)
       grid
-      (recur (add-random-line grid) (inc n)))))
+      (if-let [g (add-random-line grid)]
+        (recur g (inc n))
+        grid))))
+
+(defn gridline-to-line2d
+  [line]
+  (let [d   (dir line)
+        x1  (x line)
+        y1  (y line)
+        x2  (if (= :h d) (+ x1 (len line)) x1)
+        y2  (if (= :v d) (+ y1 (len line)) y1)]
+    (java.awt.geom.Line2D$Double. x1 y1 x2 y2)))
+
+(defn draw-grid
+  [grid]
+  (let [lines (map gridline-to-line2d (:lines grid))
+        panel (proxy [javax.swing.JPanel] []
+                (paintComponent [g]
+                  (proxy-super paintComponent g)
+                  (doseq [l lines]
+                    (.draw g l))))]
+
+    (doto (javax.swing.JFrame.)
+      (.setContentPane panel)
+      (.setSize (:width grid) (:height grid))
+      (.show))))
 
 (defn points-of-line
   [grid line]

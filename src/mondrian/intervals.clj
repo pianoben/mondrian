@@ -1,4 +1,5 @@
-(ns mondrian.intervals)
+(ns mondrian.intervals
+  (:use clojure.set))
 
 (defrecord itree [low high max color left right tag])
 
@@ -116,7 +117,11 @@
      (and (= color :black) (= r-color rr-color :red)) (balance-case-four tree)
      :else tree)))
 
-(defn insert [tree low high tag]
+(defn update-tag
+  [tree value update-fn]
+  (update-in tree [:tag] update-fn value))
+
+(defn insert [tree low high tag update-fn]
   (if tree
     (let [color (:color tree)
 	  curh  (:high  tree)
@@ -124,24 +129,31 @@
 	  left  (:left  tree)
 	  right (:right tree)]
       (cond
-       (< low  curl) (balance (assoc tree :left (insert left low high tag)))
-       (> low  curl) (balance (assoc tree :right (insert right low high tag)))
-       (< high curh) (balance (assoc tree :left (insert left low high tag)))
-       (> high curh) (balance (assoc tree :right (insert right low high tag)))
-       :else tree))
+       (< low  curl) (balance (assoc tree :left  (insert left  low high tag update-fn)))
+       (> low  curl) (balance (assoc tree :right (insert right low high tag update-fn)))
+       (< high curh) (balance (assoc tree :left  (insert left  low high tag update-fn)))
+       (> high curh) (balance (assoc tree :right (insert right low high tag update-fn)))
+       :else (update-in tree [:tag] update-fn tag)))
     (itree. low high high :red nil nil tag)))
 
 (defn empty-tree
   []
   nil)
 
+(defn ^:private replace-value
+  [_ newValue]
+  newValue)
+
 (defn add-interval
   "Adds an interval to an itree."
   ([tree low high]
-     (add-interval tree low high nil))
+     (add-interval tree low high nil replace-value))
   ([tree low high tag]
-   (let [root (insert tree low high tag)]
-     (assoc root :color :black)))) 
+   (let [root (insert tree low high tag replace-value)]
+     (assoc root :color :black)))
+  ([tree low high tag update-fn]
+     (let [root (insert tree low high tag update-fn)]
+       (assoc root :color :black))))
 
 (defn contains-point?
   "Indicates whether a given point falls within an interval in the given itree."
@@ -179,3 +191,23 @@
 (defn tag
   [tree]
   (:tag tree))
+
+(defprotocol IxTree
+  (add-ix [tree p1 p2 ix])
+  (get-ixs [tree point]))
+
+(defn ensure-set
+  [ix]
+  (if (instance? clojure.lang.PersistentHashSet ix)
+    ix
+    #{ix}))
+
+(extend-type nil
+  IxTree
+  (add-ix [_ p1 p2 ix] (insert (empty-tree) p1 p2 (ensure-set ix) (fnil union #{})))
+  (get-ix [_ _] []))
+
+(extend-type itree
+  IxTree
+  (add-ix [tree p1 p2 ix] (insert tree p1 p2 (ensure-set ix) (fnil union #{})))
+  (get-ixs [tree point] (flatten (map (comp vec tag) (stab tree point)))))

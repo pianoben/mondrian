@@ -2,9 +2,6 @@
   (:use mondrian.intervals)
   (:use mondrian.graphs))
 
-(gen-class {:name GridFullException
-            :extends java.lang.Exception})
-
 (defprotocol Line
   (x   [line] "Gets the x coordinate of a line's origin.")
   (y   [line] "Gets the y coordinate of a line's origin.")
@@ -16,6 +13,7 @@
   (width    [grid] "Gets the width of a grid.")
   (height   [grid] "Gets the height of a grid.")
   (padding  [grid] "Gets the padding between lines of a grid.")) 
+
 
 (defrecord GridLine [xval yval direction length]
   Line
@@ -61,10 +59,10 @@
      ; FIXME: Find a better data structure for ix lists
      ; Horizontal intersection itree
      (-> (empty-tree)
-         (add-interval 0 wmax #{0 hmax}))
+         (add-ix 0 wmax #{0 hmax}))
      ; Vertical intersection itree
      (-> (empty-tree)
-         (add-interval 0 hmax #{0 wmax}))
+         (add-ix 0 hmax #{0 wmax}))
      width height padding)))
 
 (defn random-point
@@ -95,34 +93,27 @@
   (let [padding  (:vpadding grid)
         npadding (:padding grid)
         x        (random-point 0 (:width grid) padding)
-        ixs      (flatten (map (comp vec tag) (stab (:hlines grid) x)))
+        ixs      (get-ixs (:hlines grid) x)
         [a b]    (select-random-endpoints ixs)
         line     (GridLine. x a :v (- b a))]
-    (println (str "Adding vline: a=" a " b=" b " x=" x " ixs=" (vec ixs)))
     (-> grid
         (update-in [:lines] conj line)
         (update-in [:vpadding] add-interval (- x npadding) (+ x npadding) nil)
-        (update-in [:vlines] add-interval a b x))))
-
-(defmacro ui
-  [grid ks fn & args]
-  (println (str "In update-in for " (vec ~ks) " keys and " (vec ~args) " args."))
-  (update-in ~grid ~ks ~fn ~args))
+        (update-in [:vlines] add-ix a b x))))
 
 (defn add-horizontal-line
   [grid]
   (let [padding  (:hpadding grid)
         npadding (:padding  grid)
         y        (random-point 0 (:height grid) padding)
-        ixs      (flatten (map (comp vec tag) (stab (:vlines grid) y)))
+        ixs      (get-ixs (:vlines grid) y)
         [a b]    (select-random-endpoints ixs)
-        line     (GridLine. a y :h (- b a))]
-    (println (str "Adding hline: a=" a " b=" b " y=" y " ixs=" (vec ixs)))
-    (-> grid
-        (ui [:lines] conj line)
-        (ui [:hpadding] add-interval (- y npadding) (+ y npadding) nil)
-        (ui [:hlines] add-interval a b y))))
-  
+        line     (GridLine. a y :h (- b a))
+	with-line (update-in grid [:lines] conj line)
+	with-pad  (update-in with-line [:hpadding] add-interval (- y npadding) (+ y npadding) nil)
+	with-int  (update-in with-pad [:hlines] add-ix a b y)]
+    with-int))
+
 (defn add-random-line
   [grid]
   (try
@@ -186,5 +177,3 @@
   [graph grid line]
   (let [[ps es] (points-of-line grid line)]
     (reduce #(fn [g [p1 p2]] (add-edge g p1 p2)) graph es)))
-
-                  

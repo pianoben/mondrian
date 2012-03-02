@@ -1,4 +1,5 @@
 (ns mondrian.graphs
+  (:require [mondrian.disjoint-sets :as ds])
   (:use [clojure [set :only [union]]]))
 
 (defprotocol Graph
@@ -78,31 +79,25 @@
 
 (defn spanning-tree
   "Computes the minimum spanning tree of a given graph and
-  returns it as a vector of edges in the form [[from to weight]].
-
-  Uses Kruskal's algorithm."
-  {:static true}
+  returns it as a vector of edges in the form [[from to weight]]."
+  ^{:static true}
   [graph]
-  (loop [sorted-edges (vec (sort-by get-weight (edges graph)))
-         trees (reduce conj (hash-set) (map hash-set (points graph)))
-         span  []]
+  (loop [forest (ds/make-disjoint-set (points graph))
+         sorted-edges (sort-by get-weight (edges graph))
+         span []]
     (cond
-     (<= (count trees) 1)  span
-     (empty? sorted-edges) nil
+     (<= (ds/ranks forest) 1)  span
+     (empty? sorted-edges)  nil
      :else
      (let [e  (first sorted-edges)
            es (rest sorted-edges)
-           n1 (first e)
-           n2 (second e)
-           t1 (first (filter #(contains? % n1) trees))
-           t2 (first (->> trees
-                          (filter #(contains? % n2))
-                          (remove #(= t1 %))))]
-       (if (and (and t1 t2) (not= t1 t2))
-         (let [t3 (union t1 t2)
-               forest (conj (disj (disj trees t1) t2) t3)]
-           (recur es forest (conj span e)))
-         (recur es trees span))))))
+           p1 (first e)
+           p2 (second e)
+           r1 (ds/find forest p1)
+           r2 (ds/find forest p2)]
+       (if (not= r1 r2)
+         (recur (ds/union forest p1 p2) es (conj span e))
+         (recur forest es span))))))
 
 (defn points-of-spanning-tree
   "Converts a spanning tree to a set of constituent points"

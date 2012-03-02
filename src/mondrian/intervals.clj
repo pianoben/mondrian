@@ -1,10 +1,41 @@
 (ns mondrian.intervals
-  (:use clojure.set))
+  (:use [clojure.set])
+  (:use [clojure.core.match :only [match]]))
 
 (defrecord itree [low high max color left right tag])
 
 (defmacro max-or-cur [node cur]
   `(if-let [m# (:max ~node)] m#  ~cur))
+
+(defmacro defn-match [name & forms]
+  `(defn name [x#]
+     (match [x#]
+            ~@forms)))
+
+(defn make-red
+  [tree]
+  (assoc tree :color :r))
+
+(defn make-black
+  [tree]
+  (assoc tree :color :b))
+
+(defn make-double-black
+  [tree]
+  (assoc tree :color :bb))
+
+(defn incr-blackness
+  [color]
+  (match color
+         :-b :r
+         :r  :b
+         :b  :bb))
+
+(defn nodemax
+  [h left right]
+  (let [l (max-or-cur left h)
+        r (max-or-cur right h)]
+    (max h l r)))
 
 (defn overlaps?
   [ll lh rl rh]
@@ -12,110 +43,63 @@
    (not (< lh rl))
    (not (< rh ll))))
 
-(defn balance-case-one
-  "Balances the case where a black node has red left child and left-left grandchild."
-  [tree]
-  (let [l  (:left tree)
-	ll (:left l)
-	a  (:left ll)
-	b  (:right ll)
-	c  (:right l)
-	d  (:right tree)
-	xl (:low ll)
-	xh (:high ll)
-	xm (:max ll)
-        xt (:tag ll)
-	yl (:low l)
-	yh (:high l)
-	ym (:max l)
-        yt (:tag l)
-	zl (:low tree)
-	zh (:high tree)
-	zm (:max tree)
-        zt (:tag tree)]
-    (itree. yl yh zm :red (itree. xl xh xm :black a b xt) (itree. zl zh zm :black c d zt) yt)))
-
-(defn balance-case-two
-  "Balances the case where a black node has a red left child and left-right grandchild."
-  [tree]
-  (let [l  (:left tree)
-	lr (:right l)
-	a  (:left l)
-	b  (:left lr)
-	c  (:right lr)
-	d  (:right tree)
-	xl (:low l)
-	xh (:high l)
-	xm (:max l)
-        xt (:tag l)
-	yl (:low lr)
-	yh (:high lr)
-	ym (:max lr)
-        yt (:tag lr)
-	zl (:low tree)
-	zh (:high tree)
-	zm (:max tree)
-        zt (:tag tree)]
-    (itree. yl yh zm :red (itree. xl xh (max-or-cur b xh) :black a b xt) (itree. zl zh zm :black c d zt) yt)))
-
-(defn balance-case-three [tree]
-  (let [r  (:right tree)
-	rl (:left r)
-	a  (:left tree)
-	b  (:left rl)
-	c  (:right rl)
-	d  (:right r)
-	xl (:low tree)
-	xh (:high tree)
-	xm (:max tree)
-        xt (:tag tree)
-	yl (:low rl)
-	yh (:high rl)
-	ym (:max rl)
-        yt (:tag rl)
-	zl (:low r)
-	zh (:high r)
-	zm (:max r)
-        zt (:tag r)]
-    (itree. yl yh zm :red (itree. xl xh (max-or-cur b xh) :black a b xt) (itree. zl zh zm :black c d zt) yt)))
-
-(defn balance-case-four [tree]
-  (let [r  (:right tree)
-	rr (:right r)
-	a  (:left tree)
-	b  (:left r)
-	c  (:left rr)
-	d  (:right rr)
-	xl (:low tree)
-	xh (:high tree)
-	xm (:max tree)
-        xt (:tag tree)
-	yl (:low r)
-	yh (:high r)
-	ym (:max r)
-        yt (:tag r)
-	zl (:low rr)
-	zh (:high rr)
-	zm (:max rr)
-        zt (:tag rr)]
-    (itree. yl yh zm :red (itree. xl xh (max-or-cur b xh) :black a b xt) (itree. zl zh zm :black c d zt) yt)))
-
 (defn balance
-  "A perhaps too-literal implementation of Okasaki's red-black balance fn."
   [tree]
-  (let [ll-color (:color (:left (:left tree)))
-	lr-color (:color (:right (:left tree)))
-	rl-color (:color (:left (:right tree)))
-	rr-color (:color (:right (:right tree)))
-	l-color  (:color (:left tree))
-	r-color  (:color (:right tree))
-	color    (:color tree)]
-    (cond
-     (and (= color :black) (= l-color ll-color :red)) (balance-case-one tree)
-     (and (= color :black) (= l-color lr-color :red)) (balance-case-two tree)
-     (and (= color :black) (= r-color rl-color :red)) (balance-case-three tree)
-     (and (= color :black) (= r-color rr-color :red)) (balance-case-four tree)
-     :else tree)))
+  (match [tree]
+         (:or [{:color (:or :b :bb) :left {:color :r :left {:color :r :left a :right b :low xl :high xh :max xm :tag xt} :right c :low yl :high yh :max ym :tag yt} :right d :low zl :high zh :max zm :tag zt}]
+              [{:color (:or :b :bb) :left {:color :r :left a :right {:color :r :left b :right c :low yl :high yh :max ym :tag yt} :low xl :high xh :max xm :tag xt} :right d :low zl :high zh :max zm :tag zt}]
+              [{:color (:or :b :bb) :left a :right {:color :r :left {:color :r :left b :right c :low yl :high yh :max ym :tag yt} :right d :low zl :high zh :max zm :tag zt} :low xl :high xh :max xm :tag xt}]
+              [{:color (:or :b :bb) :left a :right {:color :r :left b :right {:color :r :left c :right d :low zl :high zh :max zm :tag zt} :low yl :high yh :max ym :tag yt} :low xl :high xh :max xm :tag xt}])
+         (let [x (itree. xl xh (nodemax xh a b) :b a b xt)
+               z (itree. zl zh (nodemax zh c d) :b c d zt)]
+           (itree. yl yh (nodemax yh x z) :r x z yt))
+
+         [{:color :bb :left a :right {:color :-b :left {:color :b :left b :right c :low yl :high yh :max ym :tag yt} :right ({:color :b} :as d) :low zl :high zh :max zm :tag zt} :low xl :high xh :max xm :tag xt}]
+         (let [x (itree. xl xh (nodemax a b) :b a b xt)
+               z (balance (itree. zl zh (nodemax c d) :b c (make-red d) zt))]
+           (itree. yl yh (nodemax x z) :b x z yt))
+
+         [{:color :bb :left {:color :-b :left ({:color :b} :as a) :right {:color :b :left b :right c :low yl :high yh :max ym :tag yt} :low xl :high xh :max xm :tag xt} :right d :low zl :high zh :max zh :tag zt}]
+         (let [x (balance (itree. xl xh (nodemax xh a b) :b (make-red a) b xt))
+               z (itree. zl zh (nodemax zh c d) :b c d zt)]
+           (itree. yl yh (nodemax x z) :b x z yt))
+
+         :else
+         tree))
+
+(defn bubble
+  [tree]
+  (println "bubbling"))
+
+(defn-match remove-max
+  [tree]
+  [{:right nil}] (remove tree)
+  :else (bubble (assoc tree :right (remove-max tree))))
+         
+(defn remove
+  [tree]
+  (match [tree]
+         ; Leaves
+         [{:color :r :left nil :right nil}] nil
+         [{:color :b :left nil :right nil}] (assoc tree :color :bb)
+
+         ; Single-child
+         (:or [{:color :r :left child :right nil}]
+              [{:color :r :left nil :right child}])
+         child
+
+         ; Black node with one (red) child
+         (:or [{:color :b :left {:color :r :left cl :right cr :low l :high h :max m :tag t} :right nil}]
+              [{:color :b :left nil :right {:color :r :left cl :right cr :low l :high h :max m :tag t}}])
+         (itree. l h m :b cl cr t)
+
+         ; Black node with one (black) child
+         (:or [{:color :b :left ({:color :b} :as child) :right nil}]
+              [{:color :b :left nil :right ({:color :b} :as child)}])
+         (make-double-black child)
+
+         [{:left l :right r}]
+         
 
 (defn update-tag
   [tree value update-fn]
@@ -134,7 +118,7 @@
        (< high curh) (balance (assoc tree :left  (insert left  low high tag update-fn)))
        (> high curh) (balance (assoc tree :right (insert right low high tag update-fn)))
        :else (update-in tree [:tag] update-fn tag)))
-    (itree. low high high :red nil nil tag)))
+    (itree. low high high :r nil nil tag)))
 
 (defn empty-tree
   []
@@ -149,11 +133,9 @@
   ([tree low high]
      (add-interval tree low high nil replace-value))
   ([tree low high tag]
-   (let [root (insert tree low high tag replace-value)]
-     (assoc root :color :black)))
+     (make-black (insert tree low high tag replace-value)))
   ([tree low high tag update-fn]
-     (let [root (insert tree low high tag update-fn)]
-       (assoc root :color :black))))
+     (make-black (insert tree low high tag update-fn))))
 
 (defn contains-point?
   "Indicates whether a given point falls within an interval in the given itree."

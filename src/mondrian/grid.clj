@@ -1,6 +1,7 @@
 (ns mondrian.grid
   (:use mondrian.intervals)
-  (:use mondrian.graphs))
+  (:use mondrian.graphs)
+  (:require clojure.math.numeric-tower :as math))
 
 (defprotocol Line
   (x   [line] "Gets the x coordinate of a line's origin.")
@@ -39,7 +40,11 @@
              (>= (+ hx hl) vx)
              (>= (+ vy vl) hy))))))
 
-(defrecord MGrid [lines hpadding vpadding hlines vlines width height padding])
+(defrecord MGrid [lines hpadding vpadding hlines vlines width height padding]
+  Grid
+  (width [_] width)
+  (height [_] height)
+  (padding [_] padding))
 
 (defn empty-grid
   [width height padding]
@@ -67,11 +72,11 @@
 
 (defn random-point
   ([min max]
-     (+ min (rand-int (- max min))))
+     (+ min 1 (rand-int (- max min))))
   ([min max padding]
      (let [p (first
               (remove #(contains-point? padding %)
-                                        ; Instead of an infinite seq, try ten times - if after ten attempts we can't find an appropriate point, call the grid full.
+             ; Instead of an infinite seq, try ten times - if after ten attempts we can't find an appropriate point, call the grid full.
                       (take 10 (repeatedly #(random-point min max)))))]
        (if p
          p
@@ -108,11 +113,11 @@
         y        (random-point 0 (:height grid) padding)
         ixs      (get-ixs (:vlines grid) y)
         [a b]    (select-random-endpoints ixs)
-        line     (GridLine. a y :h (- b a))
-	with-line (update-in grid [:lines] conj line)
-	with-pad  (update-in with-line [:hpadding] add-interval (- y npadding) (+ y npadding) nil)
-	with-int  (update-in with-pad [:hlines] add-ix a b y)]
-    with-int))
+        line     (GridLine. a y :h (- b a))]
+    (-> grid
+        (update-in [:lines] conj line)
+        (update-in [:hpadding] add-interval (- y npadding) (+ y npadding) nil)
+        (update-in [:hlines] add-ix a b y))))
 
 (defn add-random-line
   [grid]
@@ -153,7 +158,7 @@
 
     (doto (javax.swing.JFrame.)
       (.setContentPane panel)
-      (.setSize (:width grid) (:height grid))
+      (.setSize (width grid) (height grid))
       (.show))))
 
 (defn points-of-line
@@ -177,3 +182,54 @@
   [graph grid line]
   (let [[ps es] (points-of-line grid line)]
     (reduce #(fn [g [p1 p2]] (add-edge g p1 p2)) graph es)))
+
+(defn print-grid
+  [grid]
+  (doseq [ln (:lines grid)]
+    (println (format "x: %3d y: %3d dir: %s len: %3d"
+                     (x ln)
+                     (y ln)
+                     (dir ln)
+                     (len ln)))))
+
+(defn make-adder
+  ([n] (make-adder n identity))
+  ([n f]
+     (let [x (ref n)]
+       (fn []
+         (dosync
+          (let [x' @x]
+            (ref-set x (inc x'))
+            (f x')))))))
+
+(defn print-ixs
+  [grid]
+  (let [adder (make-adder 1)
+        lines (vec (->> (:lines grid)
+                        (map #(assoc % :n (adder)))
+                        (map #(assoc % :ixs []))))]
+    (doseq [l1 lines
+            l2 lines
+            :when (not= l1 l2)]
+      (if (intersects? l1 l2)
+        (print (format "%2d-%2d " (:n l1) (:n l2)))))))
+
+(defn ignore
+  [_])
+
+;(defn draw
+;  [grid]
+;  (let [row (vec (replicate (width grid) 0))
+;        pic (vec (replicate (height grid) row))
+;        inc (make-adder (
+;  (let [a (reduce conj [] (repeatedly (* (width grid) (height grid)) #( 0 )))
+;        adder (make-adder #(expt 2 %) 1)
+;        lines (vec (->> (:lines grid)
+;                        (map #(assoc % :n (adder)))))]
+;    (loop [array a
+;           lines lines]
+;      (if (nil? lines)
+;        array
+;        (let [l (first lines)]
+;          (if (= :h (dir l))
+;            (
